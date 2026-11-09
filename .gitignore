@@ -1,0 +1,19 @@
+# Dados pessoais: nunca enviar pro GitHub
+dados/
+*.zip
+
+# Indice do RAG (contem trechos das mensagens)
+indice/
+chroma/
+
+# Modelos treinados (podem revelar as mensagens)
+*.gguf
+*.safetensors
+modelos/
+
+# Segredos
+.env
+
+# Python
+.venv/
+__pycache__/
