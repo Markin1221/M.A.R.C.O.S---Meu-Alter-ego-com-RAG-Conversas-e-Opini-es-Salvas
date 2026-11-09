@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MARCOS</title>
+<style>
+  :root { --fundo:#101214; --cartao:#191c1f; --linha:#2b3035; --texto:#eceff1; --apagado:#98a2ab; --destaque:#d9a441; --erro:#ef7d6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fundo); color:var(--texto); font:16px/1.5 system-ui,"Segoe UI",sans-serif; }
+  main { max-width:680px; margin:0 auto; padding:40px 16px 64px; }
+  h1 { margin:0; font-size:32px; letter-spacing:.14em; }
+  .sigla { margin:2px 0 32px; color:var(--apagado); font-size:14px; }
+  section { background:var(--cartao); border:1px solid var(--linha); border-radius:10px; padding:20px; margin-bottom:16px; }
+  h2 { margin:0 0 12px; font-size:15px; font-weight:600; }
+  #area { display:block; border:1.5px dashed var(--linha); border-radius:8px; padding:32px 16px; text-align:center; color:var(--apagado); cursor:pointer; }
+  #area.ativa, #area:hover { border-color:var(--destaque); color:var(--texto); }
+  #area input { position:absolute; opacity:0; width:1px; height:1px; }
+  ul { list-style:none; margin:16px 0 0; padding:0; }
+  li { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid var(--linha); font-size:14px; }
+  li span:first-child { overflow-wrap:anywhere; }
+  li span:last-child { color:var(--apagado); white-space:nowrap; }
+  .botoes { display:flex; flex-wrap:wrap; gap:8px; }
+  button { font:inherit; font-size:14px; padding:9px 14px; border-radius:7px; border:1px solid var(--linha); background:transparent; color:var(--texto); cursor:pointer; }
+  button.principal { background:var(--destaque); border-color:var(--destaque); color:#16130b; font-weight:600; }
+  button:disabled { opacity:.45; cursor:default; }
+  .ajuda { margin:12px 0 0; color:var(--apagado); font-size:13px; }
+  #etapa { font-weight:600; }
+  #linha { color:var(--apagado); font-size:13px; font-variant-numeric:tabular-nums; min-height:20px; overflow-wrap:anywhere; }
+  .barra { height:6px; border-radius:3px; background:var(--linha); overflow:hidden; margin:10px 0; }
+  #progresso { height:100%; width:0; background:var(--destaque); transition:width .4s; }
+  #aviso, #erro { font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; margin:12px 0 0; }
+  #erro { color:var(--erro); }
+</style>
+</head>
+<body>
+<main>
+  <h1>MARCOS</h1>
+  <p class="sigla">Meu Alter-ego com RAG, Conversas e Opiniões Salvas</p>
+
+  <section>
+    <h2>Conversas</h2>
+    <label id="area">
+      <input id="arquivos" type="file" accept=".zip" multiple>
+      Arraste os .zip do WhatsApp ou clique para escolher
+    </label>
+    <p id="aviso"></p>
+    <ul id="lista"></ul>
+  </section>
+
+  <section>
+    <h2>Processar</h2>
+    <div class="botoes">
+      <button class="principal" data-tarefa="indexar">Atualizar índice</button>
+      <button data-tarefa="noite">Rodar a noite toda</button>
+      <button id="parar" disabled>Parar</button>
+    </div>
+    <p class="ajuda">Atualizar índice só calcula o que for novo. Rodar a noite toda atualiza o índice e depois extrai fatos, continuando de onde parou.</p>
+  </section>
+
+  <section>
+    <div id="etapa">Parado</div>
+    <div class="barra"><div id="progresso"></div></div>
+    <div id="linha"></div>
+    <p id="erro"></p>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const botoes = [...document.querySelectorAll("[data-tarefa]")];
+const postar = (url, corpo) => fetch(url, { method: "POST", body: corpo }).then((r) => r.json());
+
+async function enviar(arquivos) {
+  if (!arquivos.length) return;
+  const dados = new FormData();
+  for (const a of arquivos) dados.append("arquivos", a);
+  $("aviso").textContent = "Enviando...";
+  const r = await postar("/api/enviar", dados);
+  if (r.erro) { $("aviso").textContent = r.erro; return; }
+  const partes = [];
+  if (r.salvos.length) partes.push(`${r.salvos.length} salvo(s). Clique em Atualizar índice.`);
+  $("aviso").textContent = [...partes, ...r.erros].join("\n");
+  atualizar();
+}
+
+async function atualizar() {
+  const { zips, tarefa } = await fetch("/api/estado").then((r) => r.json());
+  $("lista").replaceChildren(...zips.map((z) => {
+    const li = document.createElement("li");
+    const nome = document.createElement("span");
+    const tamanho = document.createElement("span");
+    nome.textContent = z.nome;
+    tamanho.textContent = `${z.kb} KB`;
+    li.append(nome, tamanho);
+    return li;
+  }));
+  $("etapa").textContent = tarefa.etapa || "Parado";
+  $("linha").textContent = tarefa.linha || "";
+  $("erro").textContent = tarefa.erro || "";
+  $("progresso").style.width = `${tarefa.porcentagem ?? 0}%`;
+  botoes.forEach((b) => (b.disabled = tarefa.rodando));
+  $("parar").disabled = !tarefa.rodando;
+}
+
+botoes.forEach((b) => b.addEventListener("click", async () => {
+  const r = await postar(`/api/iniciar/${b.dataset.tarefa}`);
+  if (r.erro) $("erro").textContent = r.erro;
+  atualizar();
+}));
+$("parar").addEventListener("click", () => postar("/api/parar").then(atualizar));
+$("arquivos").addEventListener("change", (e) => { enviar(e.target.files); e.target.value = ""; });
+const area = $("area");
+["dragover", "dragenter"].forEach((n) => area.addEventListener(n, (e) => { e.preventDefault(); area.classList.add("ativa"); }));
+["dragleave", "drop"].forEach((n) => area.addEventListener(n, (e) => { e.preventDefault(); area.classList.remove("ativa"); }));
+area.addEventListener("drop", (e) => enviar(e.dataTransfer.files));
+
+atualizar();
+setInterval(atualizar, 1500);
+</script>
+</body>
+</html>
