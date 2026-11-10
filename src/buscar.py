@@ -72,14 +72,38 @@ def carregar_indice():
     return trechos, vetores
 
 
-def buscar(pergunta, trechos, vetores, quantidade=QUANTIDADE):
-    """Devolve os trechos mais parecidos, do melhor para o pior."""
+def vetor_pergunta(pergunta):
     consulta = np.array(ollama.embed(
         model=MODELO,
         input=pergunta,
         options={"num_gpu": 0},  # na CPU, para deixar os 4 GB da GPU para o modelo de conversa
     )["embeddings"][0])
-    consulta = consulta / np.linalg.norm(consulta)
+    return consulta / np.linalg.norm(consulta)
+
+
+def carregar_fatos():
+    """Devolve (fatos, vetores), ou listas vazias se os fatos ainda não foram indexados."""
+    arquivo_lista = PASTA_INDICE / "fatos_lista.jsonl"
+    arquivo_vetores = PASTA_INDICE / "vetores_fatos.npy"
+    if not (arquivo_lista.exists() and arquivo_vetores.exists()):
+        return [], None
+    with open(arquivo_lista, encoding="utf-8") as f:
+        fatos = [json.loads(linha) for linha in f]
+    return fatos, normalizar(np.load(arquivo_vetores))
+
+
+def buscar_fatos(consulta, fatos, vetores, quantidade=8, nota_minima=0.45):
+    if not fatos:
+        return []
+    notas = vetores @ consulta
+    melhores = np.argsort(notas)[::-1][:quantidade]
+    return [fatos[i] for i in melhores if notas[i] >= nota_minima]
+
+
+def buscar(pergunta, trechos, vetores, quantidade=QUANTIDADE, consulta=None):
+    """Devolve os trechos mais parecidos, do melhor para o pior."""
+    if consulta is None:
+        consulta = vetor_pergunta(pergunta)
     idades = np.array([dias_atras(t) for t in trechos])
     notas = vetores @ consulta + PESO_RECENTE * 0.5 ** (idades / 365)
     melhores = np.argsort(notas)[::-1][:quantidade]

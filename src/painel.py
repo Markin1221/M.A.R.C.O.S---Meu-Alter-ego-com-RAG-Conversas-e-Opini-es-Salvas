@@ -20,7 +20,10 @@ TAREFAS = {
         ("Agrupando em blocos", ["criar_blocos.py", str(PASTA)]),
         ("Gerando os vetores", ["indexar.py"]),
     ],
-    "fatos": [("Extraindo fatos", ["extrair_fatos.py"])],
+    "fatos": [
+        ("Extraindo fatos", ["extrair_fatos.py"]),
+        ("Indexando os fatos", ["indexar_fatos.py"]),
+    ],
 }
 
 TAREFAS["noite"] = TAREFAS["indexar"] + TAREFAS["fatos"]
