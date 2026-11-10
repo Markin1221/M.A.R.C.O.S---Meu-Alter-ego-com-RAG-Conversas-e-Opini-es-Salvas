@@ -125,4 +125,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nParado. Rode de novo para continuar de onde salvou.")

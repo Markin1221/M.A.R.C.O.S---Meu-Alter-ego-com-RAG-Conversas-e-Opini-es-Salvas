@@ -15,7 +15,13 @@ MAX_CARACTERES = 1500   # blocos curtos cabem no contexto pequeno do modelo
 
 def ler_mensagens():
     with open(ENTRADA, encoding="utf-8") as f:
-        return [json.loads(linha) for linha in f]
+        mensagens = [json.loads(linha) for linha in f]
+
+    # As conversas com o próprio MARCOS também viram memória.
+    for arquivo in sorted((PASTA / "chat").glob("*.jsonl")):
+        with open(arquivo, encoding="utf-8") as f:
+            mensagens.extend(json.loads(linha) for linha in f if linha.strip())
+    return mensagens
 
 
 def data_hora(msg):
@@ -69,4 +75,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nParado. Rode de novo para continuar de onde salvou.")

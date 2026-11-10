@@ -2,4 +2,7 @@
 from indexar import indexar_falas
 
 if __name__ == "__main__":
-    indexar_falas()
+    try:
+        indexar_falas()
+    except KeyboardInterrupt:
+        print("\nParado. Rode de novo para continuar de onde salvou.")
